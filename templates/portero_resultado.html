@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Resultado — Portero{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-3">
+  <div class="col-md-6">
+
+    <a href="/portero" class="btn btn-outline-secondary btn-sm mb-4">← Nueva consulta</a>
+
+    {% for r in resultados %}
+      {% if r.apto %}
+
+        <div class="card mb-3 overflow-hidden">
+          <div class="text-center text-white py-4"
+               style="background: #1a7a3c;">
+            <div style="font-size:3.5rem; line-height:1;">✓</div>
+            <div style="font-size:1.8rem; font-weight:800; letter-spacing:2px; margin-top:6px;">
+              APTO PARA INGRESAR
+            </div>
+          </div>
+          <div class="card-body py-3">
+            <table class="table table-borderless mb-3" style="font-size:1rem;">
+              <tr>
+                <td class="text-muted" style="width:120px;">Nombre</td>
+                <td class="fw-bold">{{ r.nombre }}</td>
+              </tr>
+              <tr>
+                <td class="text-muted">Tipo</td>
+                <td>{{ r.tipo }}</td>
+              </tr>
+              {% if r.empresa %}
+              <tr>
+                <td class="text-muted">Empresa</td>
+                <td>{{ r.empresa }}</td>
+              </tr>
+              {% endif %}
+            </table>
+            <form action="/portero/registrar_ingreso" method="post">
+              <input type="hidden" name="dni"     value="{{ dni }}">
+              <input type="hidden" name="nombre"  value="{{ r.nombre }}">
+              <input type="hidden" name="tipo"    value="{{ r.tipo }}">
+              <input type="hidden" name="empresa" value="{{ r.empresa or '' }}">
+              <button type="submit" class="btn btn-success w-100 py-2" style="font-size:1rem;">
+                ✔ Registrar ingreso
+              </button>
+            </form>
+          </div>
+        </div>
+
+      {% else %}
+
+        <div class="card mb-3 overflow-hidden">
+          <div class="text-center text-white py-4"
+               style="background: #c0392b;">
+            <div style="font-size:3.5rem; line-height:1;">✕</div>
+            <div style="font-size:1.8rem; font-weight:800; letter-spacing:2px; margin-top:6px;">
+              NO PUEDE INGRESAR
+            </div>
+          </div>
+          <div class="card-body py-3">
+            {% if r.nombre %}
+              <table class="table table-borderless mb-3" style="font-size:1rem;">
+                <tr>
+                  <td class="text-muted" style="width:120px;">Nombre</td>
+                  <td class="fw-bold">{{ r.nombre }}</td>
+                </tr>
+                <tr>
+                  <td class="text-muted">Tipo</td>
+                  <td>{{ r.tipo }}</td>
+                </tr>
+                {% if r.empresa %}
+                <tr>
+                  <td class="text-muted">Empresa</td>
+                  <td>{{ r.empresa }}</td>
+                </tr>
+                {% endif %}
+              </table>
+            {% endif %}
+            <div class="rounded-3 p-3" style="background:#fef2f2; border:1px solid #fca5a5;">
+              <p class="fw-bold mb-2" style="color:#b91c1c; font-size:.9rem;">
+                MOTIVO
+              </p>
+              <ul class="mb-0" style="color:#7f1d1d;">
+                {% for p in r.problemas %}
+                  <li>{{ p }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      {% endif %}
+    {% endfor %}
+
+    <p class="text-center text-muted small mt-2">DNI consultado: {{ dni }}</p>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Portal Portero{% endblock %}
+{% block content %}
+<div class="row justify-content-center" style="margin-top: 40px;">
+  <div class="col-md-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="fw-bold mb-0" style="color:#2e2e8f;">Consulta de Ingreso</h4>
+      <a href="/portero/logout" class="btn btn-outline-secondary btn-sm">Salir</a>
+    </div>
+
+    <!-- Pestañas -->
+    <div class="d-flex gap-2 mb-3">
+      <button id="tab-persona" onclick="showTab('persona')"
+              class="btn btn-brand flex-fill"
+              style="border-radius:10px;">
+        👤 Persona (DNI)
+      </button>
+      <button id="tab-vehiculo" onclick="showTab('vehiculo')"
+              class="btn btn-outline-secondary flex-fill"
+              style="border-radius:10px;">
+        🚗 Vehículo (Patente)
+      </button>
+    </div>
+
+    <!-- Panel DNI -->
+    <div id="panel-persona" class="card p-4">
+      <p class="text-muted small mb-3">
+        Verificá si la persona tiene el carnet al día y, si es prestador, el 931 actualizado.
+      </p>
+      <form method="post" action="/portero/buscar">
+        <label class="form-label fw-bold" style="font-size:1rem;">DNI o CUIT</label>
+        <div class="form-text mb-2">Visitas y empleados: ingresá el DNI. Empresas: ingresá el CUIT sin guiones.</div>
+        <input type="text" name="dni" class="form-control mb-3"
+               style="font-size:1.6rem; padding:14px; letter-spacing:3px; text-align:center;"
+               placeholder="· · · · · · · ·"
+               autofocus required inputmode="numeric" autocomplete="off">
+        <button type="submit" class="btn btn-brand w-100"
+                style="padding:14px; font-size:1.1rem; font-weight:600;">
+          Consultar persona
+        </button>
+      </form>
+    </div>
+
+    <!-- Panel Patente -->
+    <div id="panel-vehiculo" class="card p-4" style="display:none">
+      <p class="text-muted small mb-3">
+        Verificá si el vehículo tiene el seguro vigente para poder ingresar.
+      </p>
+      <form method="post" action="/portero/buscar-patente">
+        <label class="form-label fw-bold" style="font-size:1rem;">Patente</label>
+        <input type="text" name="patente" class="form-control mb-3"
+               style="font-size:1.6rem; padding:14px; letter-spacing:4px; text-align:center;
+                      text-transform:uppercase;"
+               placeholder="ABC 123" required autocomplete="off">
+        <button type="submit" class="btn btn-dark w-100"
+                style="padding:14px; font-size:1.1rem; font-weight:600;">
+          Consultar vehículo
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function showTab(tab) {
+  const esPer = tab === 'persona';
+  document.getElementById('panel-persona').style.display = esPer ? '' : 'none';
+  document.getElementById('panel-vehiculo').style.display = esPer ? 'none' : '';
+  document.getElementById('tab-persona').className = esPer
+    ? 'btn btn-brand flex-fill' : 'btn btn-outline-secondary flex-fill';
+  document.getElementById('tab-persona').style.borderRadius = '10px';
+  document.getElementById('tab-vehiculo').className = esPer
+    ? 'btn btn-outline-secondary flex-fill' : 'btn btn-dark flex-fill';
+  document.getElementById('tab-vehiculo').style.borderRadius = '10px';
+  // focus input
+  const input = document.querySelector('#panel-' + tab + ' input');
+  if (input) input.focus();
+}
+</script>
+{% endblock %}

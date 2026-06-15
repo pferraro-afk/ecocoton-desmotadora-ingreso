@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Formulario de Visita{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+
+    <div class="mb-3">
+      <a href="/" class="text-muted text-decoration-none" style="font-size:.9rem;">← Volver</a>
+    </div>
+
+    <div class="card p-4">
+      <h4 class="fw-bold mb-1" style="color:#2e2e8f;">Formulario de Visita</h4>
+      <p class="text-muted small mb-4">Completá tus datos para registrarte en el sistema.</p>
+
+      <form method="post" enctype="multipart/form-data" novalidate>
+
+        <div class="section-title">Datos personales</div>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Nombre <span class="text-danger">*</span></label>
+            <input type="text" name="nombre" class="form-control" placeholder="Tu nombre" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Apellido <span class="text-danger">*</span></label>
+            <input type="text" name="apellido" class="form-control" placeholder="Tu apellido" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label">DNI <span class="text-danger">*</span></label>
+            <input type="text" name="dni" class="form-control" placeholder="Sin puntos ni espacios"
+                   required inputmode="numeric">
+          </div>
+        </div>
+
+        <div class="section-title">Vehículo</div>
+        <div class="mb-3">
+          <label class="form-label">¿Ingresás con vehículo? <span class="text-danger">*</span></label>
+          <div class="d-flex gap-4 mt-1">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="es_conductor"
+                     id="cond_si" value="si" onchange="toggleConductor()">
+              <label class="form-check-label" for="cond_si">Sí</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="es_conductor"
+                     id="cond_no" value="no" checked onchange="toggleConductor()">
+              <label class="form-check-label" for="cond_no">No</label>
+            </div>
+          </div>
+        </div>
+
+        <div id="conductor_fields" style="display:none">
+          <div class="sub-card">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Patente del vehículo</label>
+                <input type="text" name="patente" class="form-control"
+                       placeholder="Ej: AB123CD" style="text-transform:uppercase">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Seguro del vehículo</label>
+                <input type="file" name="seguro_vehiculo" class="form-control"
+                       accept=".pdf,.jpg,.jpeg,.png">
+                <div class="form-text">PDF o imagen</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Fecha de vencimiento del seguro</label>
+                <input type="date" name="seguro_vencimiento" class="form-control">
+                <div class="form-text">Se detecta automático de la imagen. Para PDF, completá manualmente.</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Carnet de conducir</label>
+                <input type="file" name="carnet_conducir" class="form-control"
+                       accept=".pdf,.jpg,.jpeg,.png">
+                <div class="form-text">PDF o imagen</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Fecha de vencimiento del carnet</label>
+                <input type="date" name="carnet_vencimiento" class="form-control">
+                <div class="form-text">Se detecta automático de la imagen. Para PDF, completá manualmente.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-brand w-100 mt-3" style="padding:13px;">
+          Enviar registro
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function toggleConductor() {
+  const v = document.querySelector('input[name="es_conductor"]:checked').value;
+  document.getElementById('conductor_fields').style.display = v === 'si' ? '' : 'none';
+}
+</script>
+{% endblock %}

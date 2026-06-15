@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Formulario Prestador de Servicio{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+
+    <div class="mb-3">
+      <a href="/" class="text-muted text-decoration-none" style="font-size:.9rem;">← Volver</a>
+    </div>
+
+    <div class="card p-4">
+      <h4 class="fw-bold mb-1" style="color:#2e2e8f;">Formulario Prestador de Servicio</h4>
+      <p class="text-muted small mb-4">
+        Si ya se registraron antes, este formulario actualiza los datos de la empresa.
+        <strong>Hay que enviarlo cada mes</strong> con el formulario 931 actualizado.
+      </p>
+
+      <form method="post" enctype="multipart/form-data" novalidate>
+
+        <div class="section-title">Datos de la empresa</div>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <label class="form-label">Razón social <span class="text-danger">*</span></label>
+            <input type="text" name="razon_social" class="form-control" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">CUIT <span class="text-danger">*</span></label>
+            <input type="text" name="cuit" class="form-control"
+                   placeholder="Sin guiones" required inputmode="numeric">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Categoría tributaria <span class="text-danger">*</span></label>
+            <select name="categoria" class="form-select" required>
+              <option value="">Seleccionar...</option>
+              <option value="RI">Responsable Inscripto</option>
+              <option value="Monotributista">Monotributista</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Correo electrónico</label>
+            <input type="email" name="gmail" class="form-control" placeholder="empresa@mail.com">
+          </div>
+        </div>
+
+        <div class="section-title">Responsable de la empresa</div>
+        <p class="text-muted small mb-3">Persona que representa a la empresa y puede ingresar a la planta.</p>
+        <div class="sub-card mb-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Nombre y apellido <span class="text-danger">*</span></label>
+              <input type="text" name="resp_nombre" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">DNI <span class="text-danger">*</span></label>
+              <input type="text" name="resp_dni" class="form-control" required inputmode="numeric">
+            </div>
+            <div class="col-12">
+              <label class="form-label">¿Ingresa manejando? <span class="text-danger">*</span></label>
+              <div class="d-flex gap-4 mt-1">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="resp_maneja"
+                         id="resp_si" value="si" onchange="toggleRespCarnet()">
+                  <label class="form-check-label" for="resp_si">Sí</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="resp_maneja"
+                         id="resp_no" value="no" checked onchange="toggleRespCarnet()">
+                  <label class="form-check-label" for="resp_no">No</label>
+                </div>
+              </div>
+            </div>
+            <div id="resp_carnet_fields" style="display:none" class="col-12">
+              <div class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label">Carnet de conducir</label>
+                  <input type="file" name="resp_carnet" class="form-control"
+                         accept=".pdf,.jpg,.jpeg,.png">
+                  <div class="form-text">PDF o imagen</div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Fecha de vencimiento del carnet</label>
+                  <input type="date" name="resp_carnet_vencimiento" class="form-control">
+                  <div class="form-text">Se detecta automático de la imagen. Para PDF, completá manualmente.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">Empleados</div>
+        <div id="empleados_container"></div>
+        <button type="button" class="btn btn-outline-success btn-sm mb-4"
+                onclick="addEmpleado()">+ Agregar empleado</button>
+
+        <div class="section-title">Vehículos</div>
+        <div id="vehiculos_container"></div>
+        <button type="button" class="btn btn-outline-primary btn-sm mb-4"
+                onclick="addVehiculo()">+ Agregar vehículo</button>
+
+        <button type="submit" class="btn btn-success w-100" style="padding:13px; font-size:1rem;">
+          Enviar registro
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let empIdx = 0;
+let vehIdx = 0;
+
+function addEmpleado() {
+  const n = ++empIdx;
+  const div = document.createElement('div');
+  div.className = 'sub-card';
+  div.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <span class="fw-600" style="font-weight:600; color:#374151;">Empleado ${n}</span>
+      <button type="button" class="btn btn-outline-danger btn-sm"
+              onclick="this.closest('.sub-card').remove()">Eliminar</button>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-6">
+        <label class="form-label">Nombre y apellido <span class="text-danger">*</span></label>
+        <input type="text" name="emp_nombre[]" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">DNI <span class="text-danger">*</span></label>
+        <input type="text" name="emp_dni[]" class="form-control" inputmode="numeric">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Formulario 931 / Seguro</label>
+        <input type="file" name="emp_931[]" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+        <div class="form-text">PDF o imagen</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Carnet de conducir <span class="text-muted">(opcional)</span></label>
+        <input type="file" name="emp_carnet[]" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+        <div class="form-text">PDF o imagen</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Vencimiento del carnet <span class="text-muted">(si aplica)</span></label>
+        <input type="date" name="emp_carnet_venc[]" class="form-control">
+        <div class="form-text">Se detecta automático de la imagen. Para PDF, completá manualmente.</div>
+      </div>
+    </div>`;
+  document.getElementById('empleados_container').appendChild(div);
+}
+
+function addVehiculo() {
+  const div = document.createElement('div');
+  div.className = 'sub-card';
+  div.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <span class="fw-600" style="font-weight:600; color:#374151;">Vehículo</span>
+      <button type="button" class="btn btn-outline-danger btn-sm"
+              onclick="this.closest('.sub-card').remove()">Eliminar</button>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-4">
+        <label class="form-label">Patente <span class="text-danger">*</span></label>
+        <input type="text" name="veh_patente[]" class="form-control"
+               required style="text-transform:uppercase">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Seguro del vehículo</label>
+        <input type="file" name="veh_seguro[]" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+        <div class="form-text">PDF o imagen</div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Vencimiento del seguro <span class="text-danger">*</span></label>
+        <input type="date" name="veh_vencimiento[]" class="form-control" required>
+        <div class="form-text">Se detecta automático de la imagen. Para PDF, completá manualmente.</div>
+      </div>
+    </div>`;
+  document.getElementById('vehiculos_container').appendChild(div);
+}
+
+addVehiculo();
+
+function toggleRespCarnet() {
+  const v = document.querySelector('input[name="resp_maneja"]:checked').value;
+  document.getElementById('resp_carnet_fields').style.display = v === 'si' ? '' : 'none';
+}
+</script>
+{% endblock %}

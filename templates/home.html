@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Inicio — Control de Ingreso{% endblock %}
+{% block content %}
+
+<div class="text-center my-4">
+  <img src="/static/logo.png" alt="Ecocoton" style="height:80px; width:auto; margin-bottom:12px;">
+  <h5 class="fw-bold mb-1" style="color:#3b3b8c;">Control de Ingreso — Planta Desmotadora</h5>
+  <p class="text-muted small">Seleccioná la opción que corresponde</p>
+</div>
+
+<div class="row justify-content-center g-4 mb-4">
+
+  <div class="col-md-4">
+    <div class="card h-100 p-4 text-center" style="border-top: 4px solid #4b4bc8;">
+      <div class="mb-3" style="font-size:3rem;">👤</div>
+      <h5 class="fw-bold mb-2">Soy una visita</h5>
+      <p class="text-muted small mb-4">
+        Completá tus datos una sola vez para poder ingresar a la planta.
+      </p>
+      <a href="/visita" class="btn btn-brand w-100 mt-auto">Completar formulario</a>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card h-100 p-4 text-center" style="border-top: 4px solid #198754;">
+      <div class="mb-3" style="font-size:3rem;">🏢</div>
+      <h5 class="fw-bold mb-2">Soy prestador de servicio</h5>
+      <p class="text-muted small mb-4">
+        Registrá tu empresa y empleados. Actualizá el formulario cada mes con el 931 nuevo.
+      </p>
+      <a href="/prestador" class="btn btn-success w-100 mt-auto">Completar formulario</a>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card h-100 p-4 text-center" style="border-top: 4px solid #212529;">
+      <div class="mb-3" style="font-size:3rem;">🔒</div>
+      <h5 class="fw-bold mb-2">Portero</h5>
+      <p class="text-muted small mb-4">
+        Consultá si una persona está habilitada para ingresar ingresando su DNI.
+      </p>
+      <a href="/portero" class="btn btn-dark w-100 mt-auto">Acceso portero</a>
+    </div>
+  </div>
+
+</div>
+
+<div class="text-center mt-2">
+  <a href="/admin" class="text-muted small" style="text-decoration:none; opacity:.6;">
+    ⚙ Panel administrativo
+  </a>
+</div>
+{% endblock %}

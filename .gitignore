@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+desmotadora.db
+desmotadora_deploy.zip
+static/uploads/
