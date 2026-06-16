@@ -7,7 +7,7 @@ from flask import (Flask, flash, redirect, render_template,
                    request, session, url_for)
 from werkzeug.utils import secure_filename
 
-from database import get_db, init_db
+from database import get_db, init_db, migrate_db
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'desmotadora-clave-2024')
@@ -27,6 +27,7 @@ MESES = {
 }
 
 init_db()
+migrate_db()
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -152,6 +153,83 @@ def extract_expiration_date(relative_path):
         return None
 
 
+def extract_dnis_from_nomina(relative_path):
+    """Lee la nómina del 931 (TXT, PDF o imagen) y devuelve un set de DNIs (8 dígitos, zero-padded)."""
+    if not relative_path:
+        return set()
+    full_path = os.path.join(os.path.dirname(__file__), 'static', relative_path)
+    if not os.path.exists(full_path):
+        return set()
+    ext = relative_path.rsplit('.', 1)[-1].lower()
+
+    text = ''
+    if ext == 'txt':
+        try:
+            with open(full_path, 'r', encoding='latin-1', errors='replace') as f:
+                text = f.read()
+        except Exception:
+            return set()
+    elif ext == 'pdf':
+        try:
+            import pdfplumber
+            with pdfplumber.open(full_path) as pdf:
+                text = '\n'.join(page.extract_text() or '' for page in pdf.pages)
+        except Exception:
+            return set()
+    elif ext in ('jpg', 'jpeg', 'png'):
+        api_key = os.environ.get('ANTHROPIC_API_KEY')
+        if not api_key:
+            return set()
+        try:
+            import anthropic
+            import base64
+            media_type = 'image/jpeg' if ext in ('jpg', 'jpeg') else 'image/png'
+            with open(full_path, 'rb') as f:
+                image_data = base64.standard_b64encode(f.read()).decode('utf-8')
+            client = anthropic.Anthropic(api_key=api_key)
+            msg = client.messages.create(
+                model='claude-haiku-4-5-20251001',
+                max_tokens=1024,
+                messages=[{
+                    'role': 'user',
+                    'content': [
+                        {'type': 'image', 'source': {'type': 'base64',
+                                                      'media_type': media_type,
+                                                      'data': image_data}},
+                        {'type': 'text', 'text': (
+                            'Este es un documento de nómina de AFIP Argentina. '
+                            'Extraé todos los números de CUIL que aparezcan '
+                            '(formato XX-XXXXXXXX-X o 11 dígitos seguidos). '
+                            'Respondé SOLO con los CUILes separados por comas, '
+                            'sin texto adicional.'
+                        )}
+                    ]
+                }]
+            )
+            text = msg.content[0].text
+        except Exception:
+            return set()
+
+    return _parse_dnis_from_text(text)
+
+
+def _parse_dnis_from_text(text):
+    """Extrae DNIs de un texto buscando patrones CUIL (XX-XXXXXXXX-X o 11 dígitos)."""
+    dnis = set()
+    for m in re.finditer(r'\b(\d{2})-?(\d{8})-?(\d)\b', text):
+        dnis.add(m.group(2))
+    return dnis
+
+
+def _dni_en_nomina(emp_dni, nomina_dnis):
+    """Compara ignorando ceros a la izquierda."""
+    try:
+        emp_int = int(emp_dni)
+        return any(int(d) == emp_int for d in nomina_dnis)
+    except (ValueError, TypeError):
+        return False
+
+
 # ── home ─────────────────────────────────────────────────────────────────────
 
 @app.route('/')
@@ -244,6 +322,9 @@ def prestador():
         resp_carnet_venc = None
         errores = []
 
+        f931_empresa = request.files.get('formulario_931')
+        formulario_931_path = save_file(f931_empresa, 'formularios_931') if f931_empresa and f931_empresa.filename else None
+
         if resp_maneja:
             resp_carnet_path = save_file(request.files.get('resp_carnet'), 'carnets_resp')
             resp_carnet_venc, err = validate_doc_date(
@@ -256,7 +337,6 @@ def prestador():
 
         nombres_emp = request.form.getlist('emp_nombre[]')
         dnis_emp = request.form.getlist('emp_dni[]')
-        files_931 = request.files.getlist('emp_931[]')
         files_carnet_emp = request.files.getlist('emp_carnet[]')
         carnet_venc_list = request.form.getlist('emp_carnet_venc[]')
 
@@ -266,7 +346,6 @@ def prestador():
             edni = normalizar_dni(edni)
             if not enombre or not edni:
                 continue
-            f931 = files_931[i] if i < len(files_931) else None
             fcarnet = files_carnet_emp[i] if i < len(files_carnet_emp) else None
             manual_venc = carnet_venc_list[i].strip() if i < len(carnet_venc_list) else ''
             carnet_path_emp = save_file(fcarnet, 'carnets_emp')
@@ -277,7 +356,7 @@ def prestador():
             )
             if err:
                 errores.append(err)
-            emp_data.append((enombre, edni, f931, carnet_path_emp, emp_carnet_venc_final))
+            emp_data.append((enombre, edni, carnet_path_emp, emp_carnet_venc_final))
 
         patentes = request.form.getlist('veh_patente[]')
         vencimientos = request.form.getlist('veh_vencimiento[]')
@@ -300,10 +379,28 @@ def prestador():
                 errores.append(err)
             veh_data.append((patente, seguro_path_veh, venc_final))
 
+        f_nomina = request.files.get('nomina_931')
+        nomina_path = save_file(f_nomina, 'nominas') if f_nomina and f_nomina.filename else None
+        if not nomina_path:
+            errores.append('La nómina de empleados del 931 es obligatoria.')
+
         if errores:
             for e in errores:
                 flash(e)
             return render_template('prestador.html')
+
+        # Verificar que cada empleado figure en la nómina
+        dnis_nomina = extract_dnis_from_nomina(nomina_path)
+        if dnis_nomina and emp_data:
+            no_encontrados = [
+                f'{enombre} (DNI {edni})'
+                for enombre, edni, *_ in emp_data
+                if not _dni_en_nomina(edni, dnis_nomina)
+            ]
+            if no_encontrados:
+                for nombre in no_encontrados:
+                    flash(f'El empleado {nombre} no figura en la nómina del 931.')
+                return render_template('prestador.html')
 
         now = datetime.now().isoformat(sep=' ')
         db = get_db()
@@ -318,12 +415,12 @@ def prestador():
                    SET razon_social=?, categoria_tributaria=?, gmail=?,
                        resp_nombre=?, resp_dni=?, resp_maneja=?,
                        resp_carnet_path=?, resp_carnet_vencimiento=?,
-                       fecha_registro=?
+                       formulario_931_path=?, nomina_path=?, fecha_registro=?
                    WHERE id=?''',
                 (razon_social, categoria, gmail,
                  resp_nombre, resp_dni, resp_maneja,
                  resp_carnet_path, resp_carnet_venc,
-                 now, prestador_id)
+                 formulario_931_path, nomina_path, now, prestador_id)
             )
             db.execute('DELETE FROM empleados WHERE prestador_id = ?', (prestador_id,))
             db.execute('DELETE FROM vehiculos WHERE prestador_id = ?', (prestador_id,))
@@ -332,22 +429,24 @@ def prestador():
                 '''INSERT INTO prestadores
                    (razon_social, cuit, categoria_tributaria, gmail,
                     resp_nombre, resp_dni, resp_maneja,
-                    resp_carnet_path, resp_carnet_vencimiento, fecha_registro)
-                   VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                    resp_carnet_path, resp_carnet_vencimiento,
+                    formulario_931_path, nomina_path, fecha_registro)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''',
                 (razon_social, cuit, categoria, gmail,
                  resp_nombre, resp_dni, resp_maneja,
-                 resp_carnet_path, resp_carnet_venc, now)
+                 resp_carnet_path, resp_carnet_venc,
+                 formulario_931_path, nomina_path, now)
             )
             prestador_id = cur.lastrowid
 
-        for enombre, edni, f931, carnet_path_emp, emp_carnet_venc_final in emp_data:
+        for enombre, edni, carnet_path_emp, emp_carnet_venc_final in emp_data:
             db.execute(
                 '''INSERT INTO empleados
                    (prestador_id, nombre, dni, formulario_931_path,
                     carnet_conducir_path, carnet_vencimiento)
                    VALUES (?,?,?,?,?,?)''',
                 (prestador_id, enombre, edni,
-                 save_file(f931, 'formularios_931'),
+                 None,
                  carnet_path_emp,
                  emp_carnet_venc_final)
             )
