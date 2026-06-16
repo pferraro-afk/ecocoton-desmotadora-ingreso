@@ -561,6 +561,35 @@ def portero_buscar():
             'problemas': problemas,
         })
 
+    # ── responsable de prestador por DNI ──
+    prest_resp = db.execute(
+        'SELECT * FROM prestadores WHERE resp_dni = ?', (dni,)
+    ).fetchone()
+    if prest_resp:
+        problemas = []
+        pdt = parse_dt(prest_resp['fecha_registro'])
+        if pdt and (today - pdt.date()).days > 40:
+            problemas.append(
+                f'Formulario 931 vencido '
+                f'(último envío: {pdt.strftime("%d/%m/%Y")}, hace {(today - pdt.date()).days} días)'
+            )
+        if prest_resp['resp_maneja'] and prest_resp['resp_carnet_vencimiento']:
+            venc_carnet = parse_dt(prest_resp['resp_carnet_vencimiento'])
+            if venc_carnet and venc_carnet.date() < today:
+                problemas.append(
+                    f'Carnet del responsable vencido '
+                    f'(venció {venc_carnet.strftime("%d/%m/%Y")})'
+                )
+        elif prest_resp['resp_maneja'] and not prest_resp['resp_carnet_vencimiento']:
+            problemas.append('Falta fecha de vencimiento del carnet del responsable')
+        resultados.append({
+            'tipo': 'Responsable de Prestador',
+            'nombre': prest_resp['resp_nombre'] or prest_resp['razon_social'],
+            'empresa': prest_resp['razon_social'],
+            'apto': not problemas,
+            'problemas': problemas,
+        })
+
     # ── prestador por CUIT ──
     prest = db.execute(
         'SELECT * FROM prestadores WHERE cuit = ?', (dni,)
