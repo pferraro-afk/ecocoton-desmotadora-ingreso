@@ -381,8 +381,8 @@ def prestador():
 
         f_nomina = request.files.get('nomina_931')
         nomina_path = save_file(f_nomina, 'nominas') if f_nomina and f_nomina.filename else None
-        if not nomina_path:
-            errores.append('La nómina de empleados del 931 es obligatoria.')
+        if emp_data and not nomina_path:
+            errores.append('Si declarás empleados, la nómina del 931 es obligatoria.')
 
         if errores:
             for e in errores:
