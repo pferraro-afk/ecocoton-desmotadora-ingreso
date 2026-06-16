@@ -62,7 +62,7 @@
             <td class="text-muted">{{ p.dni }}</td>
             <td>
               <span class="badge rounded-pill"
-                    style="background:{% if p.tipo == 'Visita' %}#dbeafe;color:#1e40af{% else %}#ede9fe;color:#5b21b6{% endif %}; font-weight:600;">
+                    style="background:{% if p.tipo == 'Visita' %}#dbeafe;color:#1e40af{% elif p.tipo == 'Responsable' %}#d1fae5;color:#065f46{% else %}#ede9fe;color:#5b21b6{% endif %}; font-weight:600;">
                 {{ p.tipo }}
               </span>
             </td>

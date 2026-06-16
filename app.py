@@ -13,7 +13,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'desmotadora-clave-2024')
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
-ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'txt'}
 PORTERO_PASSWORD = os.environ.get('PORTERO_PASSWORD', 'portero123')
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -821,6 +821,31 @@ def admin_panel():
             'problemas':      problemas,
             'fecha_registro': row['prest_fecha'],
             'ultimo_ingreso': ultimos.get(row['dni']),
+        })
+
+    # Responsables de prestadores
+    for row in db.execute('SELECT * FROM prestadores ORDER BY fecha_registro DESC').fetchall():
+        if not row['resp_nombre'] or not row['resp_dni']:
+            continue
+        problemas = []
+        pdt = parse_dt(row['fecha_registro'])
+        if pdt and (today - pdt.date()).days > 40:
+            problemas.append(f'931 vencido (hace {(today - pdt.date()).days} días)')
+        if row['resp_maneja'] and row['resp_carnet_vencimiento']:
+            venc = parse_dt(row['resp_carnet_vencimiento'])
+            if venc and venc.date() < today:
+                problemas.append(f'Carnet vencido ({venc.strftime("%d/%m/%Y")})')
+        elif row['resp_maneja'] and not row['resp_carnet_vencimiento']:
+            problemas.append('Sin fecha de carnet')
+        personas.append({
+            'nombre':         row['resp_nombre'],
+            'dni':            row['resp_dni'],
+            'tipo':           'Responsable',
+            'empresa':        row['razon_social'],
+            'apto':           not problemas,
+            'problemas':      problemas,
+            'fecha_registro': row['fecha_registro'],
+            'ultimo_ingreso': ultimos.get(row['resp_dni']),
         })
 
     db.close()
