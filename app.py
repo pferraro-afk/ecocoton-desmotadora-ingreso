@@ -14,11 +14,11 @@ app.secret_key = os.environ.get('SECRET_KEY', 'desmotadora-clave-2024')
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'txt'}
-PORTERO_PASSWORD = os.environ.get('PORTERO_PASSWORD', 'portero123')
+PORTERO_PASSWORD = os.environ.get('PORTERO_PASSWORD', 'Ecocoton26#')
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
+app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1 GB
 
 MESES = {
     1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
@@ -152,82 +152,6 @@ def extract_expiration_date(relative_path):
     except Exception:
         return None
 
-
-def extract_dnis_from_nomina(relative_path):
-    """Lee la nómina del 931 (TXT, PDF o imagen) y devuelve un set de DNIs (8 dígitos, zero-padded)."""
-    if not relative_path:
-        return set()
-    full_path = os.path.join(os.path.dirname(__file__), 'static', relative_path)
-    if not os.path.exists(full_path):
-        return set()
-    ext = relative_path.rsplit('.', 1)[-1].lower()
-
-    text = ''
-    if ext == 'txt':
-        try:
-            with open(full_path, 'r', encoding='latin-1', errors='replace') as f:
-                text = f.read()
-        except Exception:
-            return set()
-    elif ext == 'pdf':
-        try:
-            import pdfplumber
-            with pdfplumber.open(full_path) as pdf:
-                text = '\n'.join(page.extract_text() or '' for page in pdf.pages)
-        except Exception:
-            return set()
-    elif ext in ('jpg', 'jpeg', 'png'):
-        api_key = os.environ.get('ANTHROPIC_API_KEY')
-        if not api_key:
-            return set()
-        try:
-            import anthropic
-            import base64
-            media_type = 'image/jpeg' if ext in ('jpg', 'jpeg') else 'image/png'
-            with open(full_path, 'rb') as f:
-                image_data = base64.standard_b64encode(f.read()).decode('utf-8')
-            client = anthropic.Anthropic(api_key=api_key)
-            msg = client.messages.create(
-                model='claude-haiku-4-5-20251001',
-                max_tokens=1024,
-                messages=[{
-                    'role': 'user',
-                    'content': [
-                        {'type': 'image', 'source': {'type': 'base64',
-                                                      'media_type': media_type,
-                                                      'data': image_data}},
-                        {'type': 'text', 'text': (
-                            'Este es un documento de nómina de AFIP Argentina. '
-                            'Extraé todos los números de CUIL que aparezcan '
-                            '(formato XX-XXXXXXXX-X o 11 dígitos seguidos). '
-                            'Respondé SOLO con los CUILes separados por comas, '
-                            'sin texto adicional.'
-                        )}
-                    ]
-                }]
-            )
-            text = msg.content[0].text
-        except Exception:
-            return set()
-
-    return _parse_dnis_from_text(text)
-
-
-def _parse_dnis_from_text(text):
-    """Extrae DNIs de un texto buscando patrones CUIL (XX-XXXXXXXX-X o 11 dígitos)."""
-    dnis = set()
-    for m in re.finditer(r'\b(\d{2})-?(\d{8})-?(\d)\b', text):
-        dnis.add(m.group(2))
-    return dnis
-
-
-def _dni_en_nomina(emp_dni, nomina_dnis):
-    """Compara ignorando ceros a la izquierda."""
-    try:
-        emp_int = int(emp_dni)
-        return any(int(d) == emp_int for d in nomina_dnis)
-    except (ValueError, TypeError):
-        return False
 
 
 # ── home ─────────────────────────────────────────────────────────────────────
@@ -389,19 +313,6 @@ def prestador():
                 flash(e)
             return render_template('prestador.html')
 
-        # Verificar que cada empleado figure en la nómina
-        dnis_nomina = extract_dnis_from_nomina(nomina_path)
-        if dnis_nomina and emp_data:
-            no_encontrados = [
-                f'{enombre} (DNI {edni})'
-                for enombre, edni, *_ in emp_data
-                if not _dni_en_nomina(edni, dnis_nomina)
-            ]
-            if no_encontrados:
-                for nombre in no_encontrados:
-                    flash(f'El empleado {nombre} no figura en la nómina del 931.')
-                return render_template('prestador.html')
-
         now = datetime.now().isoformat(sep=' ')
         db = get_db()
         existing = db.execute(
@@ -527,7 +438,7 @@ def portero_buscar():
 
     # ── empleado de prestador por DNI ──
     emp = db.execute(
-        '''SELECT e.nombre AS emp_nombre, e.prestador_id,
+        '''SELECT e.nombre AS emp_nombre, e.prestador_id, e.aprobado_admin,
                   e.carnet_vencimiento AS emp_carnet_venc,
                   p.razon_social, p.fecha_registro AS prest_fecha
            FROM empleados e
@@ -540,12 +451,8 @@ def portero_buscar():
 
     if emp:
         problemas = []
-        pdt = parse_dt(emp['prest_fecha'])
-        if pdt and (today - pdt.date()).days > 40:
-            problemas.append(
-                f'Formulario 931 vencido '
-                f'(último envío: {pdt.strftime("%d/%m/%Y")}, hace {(today - pdt.date()).days} días)'
-            )
+        if not emp['aprobado_admin']:
+            problemas.append('Empleado pendiente de aprobación administrativa')
         if emp['emp_carnet_venc']:
             venc_carnet = parse_dt(emp['emp_carnet_venc'])
             if venc_carnet and venc_carnet.date() < today:
@@ -845,14 +752,47 @@ def admin_panel():
             'apto':           not problemas,
             'problemas':      problemas,
             'fecha_registro': row['fecha_registro'],
-            'ultimo_ingreso': ultimos.get(row['resp_dni']),
+            'ultimo_ingreso': ultimos.get(row['resp_dni']) or ultimos.get(row['cuit']),
+        })
+
+    # Prestadores con documentos para revisión manual
+    prestadores_lista = []
+    for prow in db.execute('SELECT * FROM prestadores ORDER BY fecha_registro DESC').fetchall():
+        emps = db.execute(
+            'SELECT * FROM empleados WHERE prestador_id = ?', (prow['id'],)
+        ).fetchall()
+        prestadores_lista.append({
+            'id':                  prow['id'],
+            'razon_social':        prow['razon_social'],
+            'cuit':                prow['cuit'],
+            'fecha_registro':      prow['fecha_registro'],
+            'formulario_931_path': prow['formulario_931_path'],
+            'nomina_path':         prow['nomina_path'],
+            'empleados': [dict(e) for e in emps],
         })
 
     db.close()
 
     personas.sort(key=lambda x: x['fecha_registro'] or '', reverse=True)
 
-    return render_template('admin.html', personas=personas)
+    return render_template('admin.html', personas=personas, prestadores_lista=prestadores_lista)
+
+
+@app.route('/admin/empleado/<int:emp_id>/aprobar', methods=['POST'])
+@admin_required
+def admin_aprobar_empleado(emp_id):
+    aprobado = 1 if request.form.get('aprobado') == '1' else 0
+    db = get_db()
+    db.execute('UPDATE empleados SET aprobado_admin = ? WHERE id = ?', (aprobado, emp_id))
+    db.commit()
+    db.close()
+    return redirect(url_for('admin_panel') + '#prestadores')
+
+
+@app.errorhandler(413)
+def request_entity_too_large(e):
+    flash('Los archivos subidos superan el límite permitido (300 MB). Intentá con menos archivos o imágenes más pequeñas.')
+    return redirect(request.referrer or url_for('prestador')), 413
 
 
 if __name__ == '__main__':
